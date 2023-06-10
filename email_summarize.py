@@ -144,6 +144,3 @@ def send_message(service, user_id, message):
         return message
     except HttpError as error:
         print('An error occurred: %s' % error)
-
-
-summarize_thread('188a3c309526bae4')

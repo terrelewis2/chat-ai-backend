@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, Response
 from repository import add_conversation, add_message, get_messages_from_db, get_conversations_from_db
+from email_summarize import summarize_thread
 
 app = Flask(__name__)
 
@@ -57,6 +58,19 @@ def get_messages(conversation_id):
     try:
         data = get_messages_from_db(conversation_id)
         return jsonify(data), 201
+    except Exception as e:
+        print(e)
+        return Response('''{"message": "Bad Request"}''', status=400, mimetype='application/json')
+
+
+@app.route('/emails/', methods=['POST'])
+def create_summary():
+    data = request.get_json()
+    try:
+        thread_id = data['thread_id']
+        if thread_id:
+            data = summarize_thread(thread_id)
+            return jsonify(data), 201
     except Exception as e:
         print(e)
         return Response('''{"message": "Bad Request"}''', status=400, mimetype='application/json')

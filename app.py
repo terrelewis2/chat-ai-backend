@@ -1,3 +1,5 @@
+from threading import Thread
+
 from flask import Flask, jsonify, request, Response
 from repository import add_conversation, add_message, get_messages_from_db, get_conversations_from_db
 from email_summarize import summarize_thread
@@ -69,8 +71,9 @@ def create_summary():
     try:
         thread_id = data['thread_id']
         if thread_id:
-            data = summarize_thread(thread_id)
-            return jsonify(data), 201
+            # create a new thread for the async task
+            Thread(target=summarize_thread, args=(thread_id,)).start()
+            return jsonify({"message": "Summarization started"}), 202
     except Exception as e:
         print(e)
         return Response('''{"message": "Bad Request"}''', status=400, mimetype='application/json')

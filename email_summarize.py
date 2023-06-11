@@ -1,3 +1,4 @@
+from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
 from langchain import LLMChain
 from langchain import PromptTemplate
@@ -11,6 +12,8 @@ from email.mime.text import MIMEText
 
 import os
 from dotenv import load_dotenv
+from langchain.schema import Document
+
 load_dotenv()
 
 
@@ -26,6 +29,7 @@ def summarize_thread(thread_id):
     headers = thread_details['payload']['headers']
     subject = [i['value'] for i in headers if i["name"] == "Subject"][0]
     msg_id_header = [i['value'] for i in headers if i["name"] == "Message-ID"][0]
+    request_email_id = [i['value'] for i in headers if i["name"] == "From"][0]
 
     # fetch the body
     thread = thread_details['payload']['parts'][0]['body']['data']
@@ -49,7 +53,7 @@ def summarize_thread(thread_id):
 
     # The email and message you want to send
     sender = "threadsummarizer@gmail.com"
-    to = "terrellewis2594@gmail.com"
+    to = request_email_id
     message_text = summary
 
     # Create the message
@@ -75,31 +79,50 @@ def get_thread_summary(thread):
     key: str = os.environ.get("OPENAI_API_KEY")
     print(key)
     chat_gpt = ChatOpenAI(openai_api_key=key, temperature=0, model_name="gpt-4")
-
     template = """
-    You have to summarise the email thread body below: "
-    
-    {thread_body}
-    
-    Include the following information:
-    1. The participants in the email thread along with their email ids.
-    2. The subject of the email thread.
-    3. The number of emails exchanged in the email thread.
-    4. The number of emails sent by each participant in the email thread.
-    5. The topics discussed in the email thread.
-    6. The sentiment of each email in the email thread.
-    
-    Summary:\n
-    """
-    prompt = PromptTemplate(input_variables=["thread_body"], template=template)
+    Write a concise bullet list summary of the email thread between the participants":
 
-    location_chain = LLMChain(llm=chat_gpt, prompt=prompt)
+    {text}
 
-    response = location_chain(thread)
+    Concise summary using markdown:"""
 
-    print('Summary:', response['text'])
+    prompt = PromptTemplate(template=template, input_variables=["text"])
+    summary_chain = load_summarize_chain(
+        chat_gpt, chain_type="stuff", verbose=True, prompt=prompt
+    )
 
-    return response['text']
+    docs = [Document(page_content=thread)]
+    summary_result = summary_chain.run(docs)
+    print(summary_result)
+    return summary_result
+    # key: str = os.environ.get("OPENAI_API_KEY")
+    # print(key)
+    # chat_gpt = ChatOpenAI(openai_api_key=key, temperature=0, model_name="gpt-4")
+    #
+    # template = """
+    # You have to summarise the email thread body below: "
+    #
+    # {thread_body}
+    #
+    # Include the following information:
+    # 1. The participants in the email thread along with their email ids.
+    # 2. The subject of the email thread.
+    # 3. The number of emails exchanged in the email thread.
+    # 4. The number of emails sent by each participant in the email thread.
+    # 5. The topics discussed in the email thread.
+    # 6. The sentiment of each email in the email thread.
+    #
+    # Summary:\n
+    # """
+    # prompt = PromptTemplate(input_variables=["thread_body"], template=template)
+    #
+    # location_chain = LLMChain(llm=chat_gpt, prompt=prompt)
+    #
+    # response = location_chain(thread)
+    #
+    # print('Summary:', response['text'])
+    #
+    # return response['text']
 
 
 def create_message(sender, subject, msg_id_header, to, message_text, thread_id):
@@ -144,3 +167,6 @@ def send_message(service, user_id, message):
         return message
     except HttpError as error:
         print('An error occurred: %s' % error)
+
+
+# summarize_thread('188a3c309526bae4')
